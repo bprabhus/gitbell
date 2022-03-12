@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from dataclasses import replace
 import os
 import subprocess
 import re
@@ -43,8 +44,14 @@ def get_tags(url):
     import git
 
     g = git.cmd.Git()
-    refs= g.ls_remote(url, sort='-v:refname', tags=True).split('\n')
+    if 'fio' in url:
+        refs = g.ls_remote(url,'fio*', sort='-v:refname', tags=True).split('\n')
+    else:
+        refs = g.ls_remote(url, sort='-v:refname', tags=True).split('\n')
+
     ver = re.search(r'tags/v?(.+)', refs[0]).group(1)
+    ver = re.sub('.*-', '' , ver)
+    
     return ver.replace('^{}', '')
 
 def get_latest(url):

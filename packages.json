@@ -13,6 +13,9 @@
 
     "git"   : {
         "git" : "https://github.com/git/git"
-    }
+    },
 
+    "fio"   : {
+        "git" : "https://github.com/axboe/fio"
+    }
 }
