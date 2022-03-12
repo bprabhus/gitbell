@@ -1,0 +1,10 @@
+{
+    "hyper" : {
+        "git" : "https://github.com/vercel/hyper",
+        "cmd" : "version"
+    },
+    "code"  : {},
+    "vim"   : {},
+    "git"   : {}
+
+}
