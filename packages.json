@@ -1,10 +1,18 @@
 {
     "hyper" : {
         "git" : "https://github.com/vercel/hyper",
-        "cmd" : "version"
+        "ver" : "version"
     },
-    "code"  : {},
-    "vim"   : {},
-    "git"   : {}
+    "vscode"  : {
+        "exe" : "code"
+    },
+
+    "vim"   : {
+        "git" : "https://github.com/vim/vim"
+    },
+
+    "git"   : {
+        "git" : "https://github.com/git/git"
+    }
 
 }

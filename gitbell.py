@@ -1,25 +1,27 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
+import os
+import subprocess
 import re
 import json
 import requests
-import subprocess
+import argparse
 
-with open("packages.json") as f:
-    packages_list = json.load(f)
+API_RELEASE = 'https://api.github.com/repos/{repo}/releases/latest'
 
+parser = argparse.ArgumentParser(description='Git Package Manager')
+parser.add_argument('--package','-p', dest='package_json', 
+                    default='packages.json',
+                    help='Package json file')
+parser.add_argument('--skip-remote','-s', dest='skip_remote', 
+                    action='store_true',
+                    default=False,
+                    help='Skip checking Remote versions')
 
-# for item in repolist.keys():
-#     rpath = repolist[item]['git']
-#     repo = re.findall(r'.com\/(.+)',rpath)[0]
-#     r = requests.get(f'https://api.github.com/repos/{repo}/releases/latest')
-#     resp = r.text
-#     ver = re.findall(r'tag_name":"(.+?)"',resp)
-#     print(repo, ver)
+def colorprint(text, **kwargs):
+    print(f'\033[1;32m{text}\033[0m',**kwargs)
 
 def exec_cmd(cmd_list):
-    # Exec command to get installed version
-
     process = subprocess.Popen(cmd_list, 
                             stdout=subprocess.PIPE,
                             universal_newlines=True)
@@ -30,27 +32,108 @@ def exec_cmd(cmd_list):
     return output.strip()
 
 
-def get_ver(tool_dict):
-    # Returns dict of installed versions for the tools in dict
+def get_installed(cmd):
 
-    installed_ver = {}
+    out = exec_cmd(cmd)
+    pattern = re.compile(r'(\d+\.)?(\d+\.)?(\*|\d+)')
+    ver = re.search(pattern, out).group(0)
+    return ver
 
-    for item in tool_dict.keys():
-        try: 
-            cmd_list = [item, tool_dict[item]['cmd']]
-        except KeyError:
-            cmd_list = [item, '--version']
+def get_tags(url):
+    import git
 
-        installed_ver[item] = exec_cmd(cmd_list)
+    g = git.cmd.Git()
+    refs= g.ls_remote(url, sort='-v:refname', tags=True).split('\n')
+    ver = re.search(r'tags/v?(.+)', refs[0]).group(1)
+    return ver.replace('^{}', '')
 
-    return installed_ver
+def get_latest(url):
+
+    repo = re.search(r'.com\/(.+)',url).group(1)
+    r = requests.get(API_RELEASE.format(repo=repo))
+    resp = r.text
+    try:
+        ver = re.search(r'tag_name":"v?(.+?)"',resp).group(1)
+    except AttributeError:
+        ver = get_tags(url)
+
+    return ver
+
+def get_command(app,app_dict):
+
+    try: 
+        executable = app_dict['exe']
+    except KeyError:
+        executable = app
+
+    try: 
+        cmd = [executable, app_dict['ver']]
+    except KeyError:
+        cmd = [executable, '--version']
+    
+    return cmd
+
+def get_all(p_list, skip_remote, print_inline=False):
+
+    data = {}
+    if print_inline:
+        table_header(skip_remote)
+
+    for app in sorted(p_list.keys()):
+        data[app] = {}
+
+        cmd = get_command(app, p_list[app])
+        data[app]['inst'] = get_installed(cmd)
+
+        if not skip_remote:
+            try:
+                repo_url = p_list[app]['git']
+            except KeyError:
+                ver = '-'
+            else:
+                ver = get_latest(repo_url)
+            data[app]['new'] = ver
+
+        if print_inline:
+            table_versions(data, skip_remote)
+            data={}
+
+    return data
+
+def table_header(skip_remote):
+    if not skip_remote:
+        colorprint('{:20} {:10} {:10}'.format('App', 'Installed' , 'Latest'))
+    else:
+        colorprint('{:20} {:10}'.format('App', 'Installed'))
+
+def table_versions(data, skip_remote):
+    if not skip_remote:
+        for app in data.keys():
+            print('{:20} {:10} {:10}'.format(app, 
+                                    data[app]['inst'],
+                                    data[app]['new']))
+    else:
+        for app in data.keys():
+            print('{:20} {:10}'.format(app,data[app]['inst']))
+
+def load_json(json_file):
+    if os.path.isfile(json_file):
+        with open("packages.json") as package_file:
+            p_list = json.load(package_file)
+    else:
+        print('File not found')
+        exit()
+    return p_list
+
+def main():
+
+    args = parser.parse_args()
+
+    p_list = load_json(args.package_json)
+    data = get_all(p_list, args.skip_remote)
+    table_header(args.skip_remote)
+    table_versions(data, args.skip_remote)
 
 
-
-# Gather installed versions
-installed_ver = get_ver(packages_list)
-
-# Display installed versions
-print('{:<20} {:<20}'.format('Package', 'Installed Version'))
-for package,ver in installed_ver.items():
-    print('{:<20} {:<20}'.format(package, ver))
+if __name__ == '__main__':
+    main()
